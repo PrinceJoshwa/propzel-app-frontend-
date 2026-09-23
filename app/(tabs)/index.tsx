@@ -20,6 +20,7 @@ import {
   useLeads,
 } from "@/src/api/queries";
 import { ContactActions } from "@/src/components/contact-actions";
+import { NotificationBell } from "@/src/components/notification-bell";
 import { Avatar, Card, LoadingScreen, SectionTitle } from "@/src/components/ui";
 import { formatTime, relativeTime } from "@/src/lib/format";
 import { usesNativeTabs } from "@/src/navigation";
@@ -114,9 +115,12 @@ export default function Dashboard() {
               </View>
             ) : null}
           </View>
-          <Pressable testID="dashboard-profile-button" onPress={() => router.push("/profile")}>
-            <Avatar name={user?.name || user?.email} size={46} />
-          </Pressable>
+          <View style={styles.heroActions}>
+            <NotificationBell />
+            <Pressable testID="dashboard-profile-button" onPress={() => router.push("/profile")}>
+              <Avatar name={user?.name || user?.email} size={46} />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -384,6 +388,7 @@ const useStyles = makeStyles((colors) => ({
     borderBottomRightRadius: radius.xl,
   },
   heroRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  heroActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   heroGreeting: { color: colors.onBrandPrimary, opacity: 0.85, fontSize: 14 },
   heroName: { color: colors.onBrandPrimary, fontSize: 24, fontWeight: "800" },
   rolePill: {

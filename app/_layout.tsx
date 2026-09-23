@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { ToastProvider } from "@/src/components/toast";
+import { CallerDeskNotifications } from "@/src/components/callerdesk-notifications";
 import { AuthProvider } from "@/src/auth/auth-context";
 import { queryClient } from "@/src/query-client";
 
@@ -24,6 +25,7 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <ToastProvider>
+                  <CallerDeskNotifications />
                   <StatusBar style="dark" />
                   <Stack screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="index" />

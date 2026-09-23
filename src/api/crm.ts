@@ -71,6 +71,18 @@ export type SiteVisit = {
 
 export type Project = { id: string; name?: string; [k: string]: any };
 
+export type CrmNotification = {
+  id: string;
+  type?: string;
+  title?: string;
+  message?: string;
+  link?: string;
+  read?: boolean;
+  created_at?: string;
+  meta?: Record<string, any>;
+  [k: string]: any;
+};
+
 // --- Auth ---
 export const authApi = {
   login: (email: string, password: string) =>
@@ -135,4 +147,13 @@ export const dashboardApi = {
   actionItems: () => api("/dashboard/action-items"),
   callReport: () => api("/callerdesk/dashboard"), // admin + manager only
   eod: () => api("/admin/eod-summary"), // admin only
+};
+
+// --- CallerDesk / CRM notifications ---
+export const notificationsApi = {
+  list: () => api<{ items: CrmNotification[]; unread: number }>('/notifications'),
+  markRead: (id: string) => api(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllRead: () => api('/notifications/read-all', { method: 'POST' }),
+  registerPushToken: (token: string, platform: string) =>
+    api('/notifications/push-token', { method: 'POST', body: { token, platform } }),
 };

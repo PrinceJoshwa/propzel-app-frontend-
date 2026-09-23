@@ -38,9 +38,9 @@ export function ContactActions({
       if (status === "pending_credentials") {
         toast.show("CallerDesk not configured — call logged", "info");
       } else if (status === "initiated" || status === "queued" || status === "ringing") {
-        toast.show("Calling… your phone will ring first", "success");
+        toast.show(`${message?.replace(/^Hi\s*/, "") || "Customer"}: calling… your phone will ring first`, "success");
       } else {
-        toast.show(`Call ${String(status || "started").replace(/_/g, " ")}`, "success");
+        toast.show(`${message?.replace(/^Hi\s*/, "") || "Customer"}: call ${String(status || "started").replace(/_/g, " ")}`, "success");
       }
     },
     onError: () => toast.show("Couldn't start click-to-call", "error"),

@@ -38,11 +38,19 @@
       "expo-image",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-notifications",
       "expo-status-bar",
       "@react-native-vector-icons/material-design-icons"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8170eea3-84f5-409d-a5d0-93554311f557"
+      }
+    },
+    "owner": "marketlytech"
   }
 }

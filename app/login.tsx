@@ -10,13 +10,7 @@ import { useAuth } from "@/src/auth/auth-context";
 import { useToast } from "@/src/components/toast";
 import { Button, Field } from "@/src/components/ui";
 import { ApiError } from "@/src/api/client";
-import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-
-const DEMO_ROLES = [
-  { role: "Admin", email: "admin@tasko.com", password: "admin123", icon: "shield-crown-outline" },
-  { role: "Manager", email: "manager@tasko.com", password: "manager123", icon: "account-tie-outline" },
-  { role: "Executive", email: "priya@tasko.com", password: "executive123", icon: "account-outline" },
-] as const;
+import { makeStyles, spacing, useTheme } from "@/src/theme";
 
 export default function Login() {
   const insets = useSafeAreaInsets();
@@ -122,40 +116,6 @@ export default function Login() {
           />
         </View>
 
-        <View style={styles.rolesWrap}>
-          <Text style={styles.rolesLabel}>Try a seeded role</Text>
-          <View style={styles.rolesRow}>
-            {DEMO_ROLES.map((r) => {
-              const active = email === r.email;
-              return (
-                <Pressable
-                  key={r.email}
-                  testID={`login-role-${r.role.toLowerCase()}`}
-                  onPress={() => {
-                    setEmail(r.email);
-                    setPassword(r.password);
-                  }}
-                  style={[styles.roleChip, active && styles.roleChipActive]}
-                >
-                  <Icon
-                    name={r.icon as any}
-                    size={20}
-                    color={active ? colors.onBrandPrimary : colors.brandPrimary}
-                  />
-                  <Text
-                    style={[styles.roleName, active && styles.roleNameActive]}
-                  >
-                    {r.role}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={styles.hint}>
-            Tapping a role fills its login so you can jump straight into the
-            workspace.
-          </Text>
-        </View>
       </KeyboardAwareScrollView>
     </View>
   );
@@ -169,28 +129,4 @@ const useStyles = makeStyles((colors) => ({
   title: { fontSize: 28, fontWeight: "800", color: colors.onSurface },
   subtitle: { fontSize: 15, color: colors.muted, lineHeight: 22 },
   form: { gap: spacing.lg },
-  rolesWrap: { gap: spacing.md },
-  rolesLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.onSurfaceTertiary,
-  },
-  rolesRow: { flexDirection: "row", gap: spacing.sm },
-  roleChip: {
-    flex: 1,
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceTertiary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  roleChipActive: {
-    backgroundColor: colors.brandPrimary,
-    borderColor: colors.brandPrimary,
-  },
-  roleName: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
-  roleNameActive: { color: colors.onBrandPrimary },
-  hint: { fontSize: 12, color: colors.muted, lineHeight: 18 },
 }));
