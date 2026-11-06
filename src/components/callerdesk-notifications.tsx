@@ -22,12 +22,35 @@ if (Platform.OS !== "web") {
 }
 
 function leadName(notification: CrmNotification): string {
+  const data = notificationData(notification);
+  const message = String(notification.message || "");
+  const missedMatch = message.match(/^(.+?)\s+did not connect\b/i);
   return String(
-    notification.meta?.lead_name ||
-      notification.meta?.customer_name ||
-      notification.message?.split(" · ")[0] ||
+    data.lead_name ||
+      data.customer_name ||
+      data.name ||
+      missedMatch?.[1] ||
+      message.split(" · ")[0] ||
       "Customer",
-  );
+  ).trim();
+}
+
+function notificationData(value: any): Record<string, any> {
+  const direct = value?.data && typeof value.data === "object" ? value.data : {};
+  const meta = value?.meta && typeof value.meta === "object" ? value.meta : {};
+  const nested = direct.data && typeof direct.data === "object" ? direct.data : {};
+  return { ...meta, ...nested, ...direct };
+}
+
+function notificationLeadId(value: any): string | undefined {
+  const data = notificationData(value);
+  const id = data.leadId || data.lead_id || value?.lead_id;
+  return id ? String(id) : undefined;
+}
+
+function notificationType(value: any): string {
+  const data = notificationData(value);
+  return String(value?.type || data.type || "");
 }
 
 function followUpName(item: FollowUp): string {
@@ -50,8 +73,8 @@ async function configureNotifications() {
   }
   if (status === "granted") {
     try {
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+      const token = (await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)).data;
       await notificationsApi.registerPushToken(token, Platform.OS);
     } catch {
       // Local reminders and foreground polling still work if push registration fails.
@@ -78,6 +101,7 @@ async function scheduleFollowUpReminder(item: FollowUp) {
       body: `${followUpName(item)} · auto-dialer follow-up`,
       data: { followUpId: String(item.id), leadId: item.lead_id },
       sound: "default",
+      ...(Platform.OS === "android" ? { channelId: "callerdesk" } : {}),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -99,8 +123,29 @@ export function CallerDeskNotifications() {
 
     const responseSubscription = Platform.OS !== "web"
       ? Notifications.addNotificationResponseReceivedListener((response) => {
-          const data = response.notification.request.content.data as { leadId?: string };
-          if (data?.leadId) router.push(`/leads/${String(data.leadId)}`);
+          const content = response.notification.request.content;
+          const data = notificationData(content.data);
+          const leadId = notificationLeadId(data);
+          const link = String(data.link || "");
+          if (link.startsWith("/leads/")) router.push(link as any);
+          else if (leadId) router.push(`/leads/${leadId}` as any);
+        })
+      : null;
+
+    const receivedSubscription = Platform.OS !== "web"
+      ? Notifications.addNotificationReceivedListener((notification) => {
+          const content = notification.request.content;
+          const data = notificationData(content.data);
+          if (CALL_TYPES.has(notificationType(data))) {
+            const name = String(
+              data.lead_name ||
+                data.customer_name ||
+                data.name ||
+                content.body?.split(" · ")[0] ||
+                "Customer",
+            );
+            toast.show(`${content.title || "Caller Desk update"}: ${name}`, "info");
+          }
         })
       : null;
 
@@ -111,14 +156,27 @@ export function CallerDeskNotifications() {
         }
         const response = await notificationsApi.list();
         const items = response?.items || [];
-        items
-          .filter((item) => !item.read && CALL_TYPES.has(String(item.type)))
-          .forEach((item) => {
-            if (seen.current.has(item.id)) return;
-            seen.current.add(item.id);
-            const name = leadName(item);
-            toast.show(`${item.title || "Caller Desk update"}: ${name}`, "info");
-          });
+        for (const item of items.filter(
+          (candidate) => !candidate.read && CALL_TYPES.has(String(candidate.type)),
+        )) {
+          if (seen.current.has(item.id)) continue;
+          seen.current.add(item.id);
+          const name = leadName(item);
+          toast.show(`${item.title || "Caller Desk update"}: ${name}`, "info");
+          if (Platform.OS !== "web" && configured.current) {
+            const leadId = notificationLeadId(item);
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: `${item.title || "Caller Desk update"}: ${name}`,
+                body: item.message || `Call from ${name}`,
+                data: { ...notificationData(item), leadId, link: item.link },
+                sound: "default",
+                ...(Platform.OS === "android" ? { channelId: "callerdesk" } : {}),
+              },
+              trigger: null,
+            });
+          }
+        }
 
         if (Platform.OS !== "web" && configured.current && active) {
           const followUps = await followUpsApi.list({ status: "pending" });
@@ -137,6 +195,7 @@ export function CallerDeskNotifications() {
       active = false;
       clearInterval(timer);
       responseSubscription?.remove();
+      receivedSubscription?.remove();
     };
   }, [loading, user, toast, router]);
 
