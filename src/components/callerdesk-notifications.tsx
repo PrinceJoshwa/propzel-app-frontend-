@@ -8,7 +8,21 @@ import { notificationsApi, CrmNotification, followUpsApi, FollowUp } from "@/src
 import { useAuth } from "@/src/auth/auth-context";
 import { useToast } from "@/src/components/toast";
 
-const CALL_TYPES = new Set(["incoming_call", "call_connected", "missed_call"]);
+const CALL_TYPES = new Set([
+  "incoming_call",
+  "call_connected",
+  "missed_call",
+  "follow_up",
+  "followup",
+  "followup_due",
+  "call_follow_up",
+  "auto_dialer",
+  "auto_dialer_follow_up",
+]);
+
+function normalizeNotificationType(value: any): string {
+  return String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
@@ -37,9 +51,10 @@ function leadName(notification: CrmNotification): string {
 
 function notificationData(value: any): Record<string, any> {
   const direct = value?.data && typeof value.data === "object" ? value.data : {};
+  const flat = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const meta = value?.meta && typeof value.meta === "object" ? value.meta : {};
   const nested = direct.data && typeof direct.data === "object" ? direct.data : {};
-  return { ...meta, ...nested, ...direct };
+  return { ...flat, ...meta, ...nested, ...direct };
 }
 
 function notificationLeadId(value: any): string | undefined {
@@ -50,11 +65,25 @@ function notificationLeadId(value: any): string | undefined {
 
 function notificationType(value: any): string {
   const data = notificationData(value);
-  return String(value?.type || data.type || "");
+  return normalizeNotificationType(value?.type || data.type || data.notification_type);
 }
 
 function followUpName(item: FollowUp): string {
-  return String((item as any).lead_name || (item as any).customer_name || "Customer");
+  const value = item as any;
+  return String(value.lead_name || value.customer_name || value.name || value.lead?.name || "Customer");
+}
+
+function isCallFollowUp(item: FollowUp): boolean {
+  const value = item as any;
+  const kind = normalizeNotificationType(value.kind || value.type || value.task_type);
+  return value.auto_dial === true || [
+    "call",
+    "call_follow_up",
+    "follow_up",
+    "missed_call",
+    "auto_dialer",
+    "auto_dialer_follow_up",
+  ].includes(kind);
 }
 
 async function configureNotifications() {
@@ -99,7 +128,13 @@ async function scheduleFollowUpReminder(item: FollowUp) {
     content: {
       title: "Upcoming followup",
       body: `${followUpName(item)} · auto-dialer follow-up`,
-      data: { followUpId: String(item.id), leadId: item.lead_id },
+          data: {
+            followUpId: String(item.id),
+            leadId: item.lead_id,
+            leadName: followUpName(item),
+            type: "followup_due",
+          },
+          priority: "high",
       sound: "default",
       ...(Platform.OS === "android" ? { channelId: "callerdesk" } : {}),
     },
@@ -156,9 +191,9 @@ export function CallerDeskNotifications() {
         }
         const response = await notificationsApi.list();
         const items = response?.items || [];
-        for (const item of items.filter(
-          (candidate) => !candidate.read && CALL_TYPES.has(String(candidate.type)),
-        )) {
+          for (const item of items.filter(
+            (candidate) => !candidate.read && CALL_TYPES.has(notificationType(candidate)),
+          )) {
           if (seen.current.has(item.id)) continue;
           seen.current.add(item.id);
           const name = leadName(item);
@@ -169,7 +204,14 @@ export function CallerDeskNotifications() {
               content: {
                 title: `${item.title || "Caller Desk update"}: ${name}`,
                 body: item.message || `Call from ${name}`,
-                data: { ...notificationData(item), leadId, link: item.link },
+                   data: {
+                     ...notificationData(item),
+                     leadId,
+                     leadName: name,
+                     link: item.link,
+                     type: notificationType(item),
+                   },
+                   priority: "high",
                 sound: "default",
                 ...(Platform.OS === "android" ? { channelId: "callerdesk" } : {}),
               },
@@ -180,8 +222,8 @@ export function CallerDeskNotifications() {
 
         if (Platform.OS !== "web" && configured.current && active) {
           const followUps = await followUpsApi.list({ status: "pending" });
-          for (const item of followUps || []) {
-            if (item.kind === "call") await scheduleFollowUpReminder(item);
+             for (const item of followUps || []) {
+               if (isCallFollowUp(item)) await scheduleFollowUpReminder(item);
           }
         }
       } catch {

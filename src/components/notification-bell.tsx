@@ -39,9 +39,16 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
-    load();
-    const timer = setInterval(load, 8000);
-    return () => clearInterval(timer);
+    const initialLoad = setTimeout(() => {
+      void load();
+    }, 0);
+    const timer = setInterval(() => {
+      void load();
+    }, 8000);
+    return () => {
+      clearTimeout(initialLoad);
+      clearInterval(timer);
+    };
   }, []);
 
   const openNotification = async (item: CrmNotification) => {
